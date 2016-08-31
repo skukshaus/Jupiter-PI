@@ -1,0 +1,145 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          iptables
+# Required-Start:    
+# Required-Stop:     
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Firewall Script
+# Description:       Regelt Datenzugriffe auf den PI und das gesammte Netzwerk
+### END INIT INFO
+
+
+# Leer alle bestehenden Regeln aus allen Ketten
+do_flush() {
+	iptables -F
+	iptables -F -t mangle
+	iptables -F -t nat
+	
+	iptables -F INPUT
+	iptables -F FORWARD
+	iptables -F OUTPUT
+	
+	iptables -P INPUT ACCEPT
+	iptables -P FORWARD ACCEPT
+	iptables -P OUTPUT ACCEPT
+	
+	iptables -X ROUTER
+}
+
+# Pakete dürfen natürlich vom Router aus zurück ins Netzwerk transportiert werden
+enable_intranet() {
+	# Ausgehenden Traffic an das Netzwerk erlauben
+	iptables -A OUTPUT -o eth1 -j ACCEPT
+	iptables -A OUTPUT -o wlan0 -j ACCEPT
+	# Ungewollten ausgehenden Traffic loggen
+	iptables -A OUTPUT -j LOG --log-prefix "[FW] WARNING-CALL-HOME "
+	# und natürlich sperren :-)
+	#iptables -A OUTPUT -j REJECT
+	iptables -P OUTPUT ACCEPT
+	
+}
+
+# alle Pakete, die von Router rausgehen, bekommen die IP vom Router.
+# Dadurch wird die IP der Rechner in den einzelnen Netzwerken verschleiert
+# sodass man den Absender nicht mehr kennt
+enable_masquerade() {
+	iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+}
+
+# Bestehende Pakete werden bei Bedarf ins LAN und WLAN weitergereicht
+# ermöglicht also das surfen im Internet :-)
+enable_routing() {
+	# Neue Kette für das Routing erstellen
+	iptables -N ROUTER
+
+	# HTTP(s)
+	iptables -A ROUTER -p tcp -m multiport --dport 80,443 -j ACCEPT
+	# POP3(s)
+	iptables -A ROUTER -p tcp -m multiport --dport 110,995 -j ACCEPT
+	# IMAP(s)
+	iptables -A ROUTER -p tcp -m multiport --dport 143,993 -j ACCEPT
+	# SMTP
+	iptables -A ROUTER -p tcp --dport 25 -j ACCEPT
+	# FTP
+	#iptables -A ROUTER -p tcp --dport 21 -j ACCEPT
+	#iptables -A ROUTER -p tcp --dport 21 -j ACCEPT
+	
+	# DNS
+	iptables -A ROUTER -p tcp --dport 53 -j ACCEPT
+	iptables -A ROUTER -p udp --dport 53 -j ACCEPT
+	# NTP (Network Time Protocol)
+	iptables -A ROUTER -p udp --dport 123  -j ACCEPT 
+	
+	# Google Play (für Androids und so)
+	iptables -A ROUTER -p tcp --dport 9000 -j ACCEPT
+	iptables -A ROUTER -p tcp --dport 9300 -j ACCEPT
+	iptables -A ROUTER -p tcp --dport 9339 -j ACCEPT
+	iptables -A ROUTER -p tcp --dport 4234 -j ACCEPT
+	iptables -A ROUTER -p tcp --dport 9050 -j ACCEPT
+	
+	# WhatsApp
+	iptables -A ROUTER -p tcp --dport 5222 -j ACCEPT
+		
+	iptables -A ROUTER -m state --state RELATED,ESTABLISHED -j ACCEPT
+	
+	iptables -A ROUTER -j LOG --log-prefix "[FW] DENY-LAN-ACCESS "
+	iptables -A ROUTER -j DROP
+		
+	iptables -A FORWARD -j ROUTER
+	#iptables -A FORWARD -i wlan0 -o eth0 -j ROUTER
+	iptables -P FORWARD DROP
+}
+
+pass_ports() {
+	# GANZ wichtig um sich nicht aus Versehen auszusperren, wenn man per PuTTy
+	# am Raspberry arbeitet!!! SSH darf aber nur aus dem lokalen Netzwerk zugänglich
+	# sein. Also nicht per WLAN. Da könnte sich ja sonst wer darauf verbinden
+	# ist zwar etwas unwahrscheinlich, aber sicher ist sicher :-)
+	iptables -A INPUT -i eth1 -p tcp --dport 22 -j ACCEPT
+	
+	# Auf Pings Antworten
+	iptables -A INPUT -p icmp -j ACCEPT
+	# Samba
+	iptables -A INPUT -p tcp -m multiport --dport 139,445 -j ACCEPT
+	iptables -A INPUT -p udp -m multiport --dport 137,138 -j ACCEPT
+	# HTTP(s)
+	iptables -A INPUT -p tcp -m multiport --dport 80,443 -j ACCEPT
+	# DHCP
+	iptables -A INPUT -p udp --dport 67 -j ACCEPT
+	iptables -A INPUT -p udp --dport 68 -j ACCEPT
+	# IPP (Internet Printing Protocol)
+	iptables -A INPUT -p tcp --dport 631 -j ACCEPT
+	iptables -A INPUT -p udp --dport 631 -j ACCEPT
+		
+	# Ankommenden Traffic loggen
+	iptables -A INPUT -j LOG --log-prefix "[FW] DENY-RPI-ACCESS "
+	# und abweisen
+	#iptables -A INPUT -j REJECT --reject-with icmp-host-prohibited
+	iptables -P INPUT ACCEPT	
+}
+
+do_start() {
+	do_flush
+	pass_ports
+	enable_intranet
+	enable_masquerade
+	enable_routing
+}
+
+
+case "$1" in
+	start)
+		echo "firewall started";
+		do_start
+	;;
+	stop)
+		echo "firewall stopped";
+		do_flush
+	;;
+	restart)
+		do_start
+	;;
+esac
+
+exit 0
