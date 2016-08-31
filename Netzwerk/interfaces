@@ -1,0 +1,17 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+	address 192.168.2.97
+	netmask 255.255.255.0
+	gateway 192.168.2.1
+
+auto eth1
+iface eth1 inet static
+	address 172.26.47.253
+	netmask 255.255.240.0
+
+iface wlan0 inet static
+	address 172.26.63.253
+	netmask 255.255.240.0
