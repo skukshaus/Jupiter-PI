@@ -1,0 +1,28 @@
+;;
+;; BIND reverse data file for zone 0.20.10.in-addr-arpa
+;;
+
+$TTL 86400
+
+@ IN     SOA    dns.knet.mw. hostmaster.knet.mw. (
+				2016110713  ; Serial
+				3H          ; refresh after 3 hours
+				1H          ; retry after 1 hour
+				1W          ; expire after 1 week
+				1D)         ; minimum TTL of 1 day
+
+	; Name Server
+	IN	NS	dns.knet.mw.	; jupiter
+
+; ENCELADUS-VM
+42.80	IN	PTR	wiki.knet.mw
+42.80	IN	PTR	erp.knet.mw
+42.80	IN	PTR	pma.knet.mw
+42.80	IN	PTR	redmine.knet.mw
+
+; JUPITER-PI
+47.250	IN	PTR	jupiter.knet.mw.
+47.250	IN	PTR	dash.jupiter.knet.mw.
+47.250	IN	PTR	malmware.knet.mw.
+
+; EOF

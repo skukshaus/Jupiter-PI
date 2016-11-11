@@ -1,0 +1,31 @@
+;;
+;; BIND forward data file for zone jupiter.mw
+;;
+
+$TTL 86400
+
+@ IN     SOA    dns.knet.mw. hostmaster.knet.mw. (
+				2016110713  ; Serial
+				3H          ; refresh after 3 hours
+				1H          ; retry after 1 hour
+				1W          ; expire after 1 week
+				1D)         ; minimum TTL of 1 day
+
+	; Name Server
+	IN	NS	dns.knet.mw.	; jupiter
+
+dns					IN A		172.26.47.253
+jupiter				IN A		172.26.47.253
+malmware			IN A		172.26.47.253
+dash.jupiter		IN A		172.26.47.253
+
+erp			IN A		172.26.42.80
+wiki		IN A		172.26.42.80
+pma			IN A		172.26.42.80
+redmine		IN A		172.26.42.80
+
+www			IN CNAME	172.26.47.253
+
+
+
+; EOF
