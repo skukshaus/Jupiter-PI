@@ -9,6 +9,15 @@
 # Description:       Regelt Datenzugriffe auf den PI und das gesammte Netzwerk
 ### END INIT INFO
 
+echo "+-------------------------------------------------------------------+"
+echo "|                  ______      _                                    |"
+echo "|                 (_____ \    (_)                                   |"
+echo "|                  _____) )___ _ _   _ _   _ _   _                  |"
+echo "|                 |  ____/ ___) | | | | | | ( \ / )                 |"
+echo "|                 | |   | |   | |\ V /| |_| |) X (                  |"
+echo "|                 |_|   |_|   |_| \_/  \____(_/ \_)                 |"
+echo "|                                                                   |"
+echo "+-------------------------------------------------------------------+"
 
 # Leer alle bestehenden Regeln aus allen Ketten
 do_flush() {
