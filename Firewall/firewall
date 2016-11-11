@@ -22,22 +22,29 @@ do_flush() {
 	
 	iptables -P INPUT ACCEPT
 	iptables -P FORWARD ACCEPT
-	iptables -P OUTPUT ACCEPT
-	
-	iptables -X ROUTER
+	iptables -P OUTPUT ACCEPT	
 }
 
 # Pakete dürfen natürlich vom Router aus zurück ins Netzwerk transportiert werden
 enable_intranet() {
 	# Ausgehenden Traffic an das Netzwerk erlauben
+	iptables -A OUTPUT -o lo -j ACCEPT
 	iptables -A OUTPUT -o eth1 -j ACCEPT
 	iptables -A OUTPUT -o wlan0 -j ACCEPT
-	# Ungewollten ausgehenden Traffic loggen
-	iptables -A OUTPUT -j LOG --log-prefix "[FW] WARNING-CALL-HOME "
-	# und natürlich sperren :-)
-	#iptables -A OUTPUT -j REJECT
-	iptables -P OUTPUT ACCEPT
 	
+	iptables -A OUTPUT -p tcp -m tcp --sport 53:65535 --dport 53 -j ACCEPT
+	iptables -A OUTPUT -p udp -m udp --sport 53:65535 --dport 53 -j ACCEPT
+
+	
+	iptables -A OUTPUT -p tcp -m multiport --dport 80,443 -j ACCEPT
+	iptables -A OUTPUT -p udp -m multiport --dport 80,443 -j ACCEPT
+	# SPAMMY
+	iptables -A OUTPUT -o eth0 -p udp --dport 631 -j REJECT
+	
+	# Ungewollten ausgehenden Traffic loggen
+	iptables -A OUTPUT -j LOG --log-prefix "[FW-O] CALL-HOME "
+	# und natürlich sperren :-)
+	iptables -A OUTPUT -j REJECT --reject-with icmp-host-prohibited
 }
 
 # alle Pakete, die von Router rausgehen, bekommen die IP vom Router.
@@ -50,48 +57,47 @@ enable_masquerade() {
 # Bestehende Pakete werden bei Bedarf ins LAN und WLAN weitergereicht
 # ermöglicht also das surfen im Internet :-)
 enable_routing() {
-	# Neue Kette für das Routing erstellen
-	iptables -N ROUTER
-
 	# HTTP(s)
-	iptables -A ROUTER -p tcp -m multiport --dport 80,443 -j ACCEPT
+	iptables -A FORWARD -p tcp -m multiport --dport 80,443 -j ACCEPT
+	iptables -A FORWARD -p udp -m multiport --dport 80,443 -j ACCEPT
 	# POP3(s)
-	iptables -A ROUTER -p tcp -m multiport --dport 110,995 -j ACCEPT
+	iptables -A FORWARD -p tcp -m multiport --dport 110,995 -j ACCEPT
+	iptables -A FORWARD -p udp -m multiport --dport 110,995 -j ACCEPT
 	# IMAP(s)
-	iptables -A ROUTER -p tcp -m multiport --dport 143,993 -j ACCEPT
+	iptables -A FORWARD -p tcp -m multiport --dport 143,993 -j ACCEPT
+	iptables -A FORWARD -p udp -m multiport --dport 143,993 -j ACCEPT
 	# SMTP
-	iptables -A ROUTER -p tcp --dport 25 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 25 -j ACCEPT
+	iptables -A FORWARD -p udp --dport 25 -j ACCEPT
 	# FTP
-	#iptables -A ROUTER -p tcp --dport 21 -j ACCEPT
-	#iptables -A ROUTER -p tcp --dport 21 -j ACCEPT
+	#iptables -A FORWARD -p tcp --dport 21 -j ACCEPT
+	#iptables -A FORWARD -p tcp --dport 21 -j ACCEPT
 	
 	# DNS
-	iptables -A ROUTER -p tcp --dport 53 -j ACCEPT
-	iptables -A ROUTER -p udp --dport 53 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 53 -j ACCEPT
+	iptables -A FORWARD -p udp --dport 53 -j ACCEPT
 	# NTP (Network Time Protocol)
-	iptables -A ROUTER -p udp --dport 123  -j ACCEPT 
+	iptables -A FORWARD -p udp --dport 123  -j ACCEPT 
 	
 	# Google Play (für Androids und so)
-	iptables -A ROUTER -p tcp --dport 9000 -j ACCEPT
-	iptables -A ROUTER -p tcp --dport 9300 -j ACCEPT
-	iptables -A ROUTER -p tcp --dport 9339 -j ACCEPT
-	iptables -A ROUTER -p tcp --dport 4234 -j ACCEPT
-	iptables -A ROUTER -p tcp --dport 9050 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 9000 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 9300 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 9339 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 4234 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 9050 -j ACCEPT
 	
 	# WhatsApp
-	iptables -A ROUTER -p tcp --dport 5222 -j ACCEPT
+	iptables -A FORWARD -p tcp --dport 5222 -j ACCEPT
 		
-	iptables -A ROUTER -m state --state RELATED,ESTABLISHED -j ACCEPT
+	iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
 	
-	iptables -A ROUTER -j LOG --log-prefix "[FW] DENY-LAN-ACCESS "
-	iptables -A ROUTER -j DROP
-		
-	iptables -A FORWARD -j ROUTER
-	#iptables -A FORWARD -i wlan0 -o eth0 -j ROUTER
-	iptables -P FORWARD DROP
+	iptables -A FORWARD -j LOG --log-prefix "[FW-F] LAN-ACCESS "
+	iptables -A FORWARD -j REJECT --reject-with icmp-host-prohibited
 }
 
 pass_ports() {
+	iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+	
 	# GANZ wichtig um sich nicht aus Versehen auszusperren, wenn man per PuTTy
 	# am Raspberry arbeitet!!! SSH darf aber nur aus dem lokalen Netzwerk zugänglich
 	# sein. Also nicht per WLAN. Da könnte sich ja sonst wer darauf verbinden
@@ -105,18 +111,24 @@ pass_ports() {
 	iptables -A INPUT -p udp -m multiport --dport 137,138 -j ACCEPT
 	# HTTP(s)
 	iptables -A INPUT -p tcp -m multiport --dport 80,443 -j ACCEPT
+	# DNS
+	iptables -A INPUT -p tcp --dport 53 -j ACCEPT
+	iptables -A INPUT -p udp --dport 53 -j ACCEPT
+	iptables -A INPUT -p tcp --dport 953 -j ACCEPT
+	# PROXY
+	iptables -A INPUT -p tcp --dport 3128 -j ACCEPT
+	
 	# DHCP
 	iptables -A INPUT -p udp --dport 67 -j ACCEPT
 	iptables -A INPUT -p udp --dport 68 -j ACCEPT
 	# IPP (Internet Printing Protocol)
 	iptables -A INPUT -p tcp --dport 631 -j ACCEPT
 	iptables -A INPUT -p udp --dport 631 -j ACCEPT
-		
+	
 	# Ankommenden Traffic loggen
-	iptables -A INPUT -j LOG --log-prefix "[FW] DENY-RPI-ACCESS "
+	iptables -A INPUT -j LOG --log-prefix "[FW-I] RPI-ACCESS: "
 	# und abweisen
-	#iptables -A INPUT -j REJECT --reject-with icmp-host-prohibited
-	iptables -P INPUT ACCEPT	
+	iptables -A INPUT -j REJECT --reject-with icmp-host-prohibited
 }
 
 do_start() {
@@ -136,6 +148,7 @@ case "$1" in
 	stop)
 		echo "firewall stopped";
 		do_flush
+		enable_masquerade
 	;;
 	restart)
 		do_start
