@@ -1,0 +1,17 @@
+;; BIND reverse data file for zone 1.10.10.in-addr-arpa
+
+$TTL 86400
+@ IN     SOA    dns.jupiter.local. hostmaster.knet.mw. (
+				2020010401  ; Serial
+				3H          ; refresh after 3 hours
+				1H          ; retry after 1 hour
+				1W          ; expire after 1 week
+				1D)         ; minimum TTL of 1 day
+
+; Name Server
+				IN	NS	dns.jupiter.local.
+
+; JUPITER-PI
+1.1		IN	PTR		jupiter.local.
+1.1		IN	PTR		dash.jupiter.local.
+; EOF
