@@ -1,0 +1,82 @@
+#
+# CONFIG FILE FOR SQUIDGUARD
+#
+# Caution: do NOT use comments inside { }
+#
+
+dbhome /var/lib/squidguard/db
+logdir /var/log/squidguard
+
+#
+# TIME RULES:
+# abbrev for weekdays: 
+# s = sun, m = mon, t =tue, w = wed, h = thu, f = fri, a = sat
+
+time workhours {
+	weekly mtwhf 08:00 - 16:30
+	date *-*-01  08:00 - 16:30
+}
+
+#
+# SOURCE ADDRESSES:
+#
+
+src admin {
+	ip  		1.2.3.4  1.2.3.5
+	user		root foo bar
+	within		workhours
+}
+
+src foo-clients {
+	ip		172.16.2.32-172.16.2.100 172.16.2.100 172.16.2.200
+}
+
+src bar-clients {
+	ip		172.16.4.0/26
+}
+
+#
+# DESTINATION CLASSES:
+#
+# [see also in file dest-snippet.txt]
+
+dest good {
+}
+
+dest local {
+}
+
+dest porn {
+}
+
+#dest adult {
+#	domainlist	BL/adult/domains
+#	urllist		BL/adult/urls
+#	expressionlist	BL/adult/expressions
+#	redirect http://admin.foo.bar.de/cgi-bin/blocked.cgi?clientaddr=%a&clientname=%n&clientuser=%i&clientgroup=%s&targetgroup=%t&url=%u
+#}
+
+#
+# ACL RULES:
+#
+
+acl {
+	admin {
+		pass	 any
+	}
+
+	foo-clients within workhours {
+		pass	 good !in-addr !porn any
+	} else {
+		pass any
+	}
+
+	bar-clients {
+		pass	local none
+	}
+
+	default {
+		pass	 local none
+		redirect http://admin.foo.bar.de/cgi-bin/blocked.cgi?clientaddr=%a&clientname=%n&clientuser=%i&clientgroup=%s&targetgroup=%t&url=%u
+	}
+}
