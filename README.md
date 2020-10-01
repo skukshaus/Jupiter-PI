@@ -1,4 +1,4 @@
-# Jupiter PI
+# Jupiter PI-An amazing project
 *Offizielles Repository*
 
 Das Projekt Jupiter PI stellt alle handelsüblichen Router in den Schatten. 
